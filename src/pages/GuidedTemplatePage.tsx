@@ -219,7 +219,6 @@ export default function GuidedTemplatePage() {
       mediaRecorder.start()
 
       // Play each clip sequentially
-      let currentTime = 0
       for (let i = 0; i < videoElements.length; i++) {
         const video = videoElements[i]
         const clip = recordedClips[i]
