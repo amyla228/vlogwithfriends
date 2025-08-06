@@ -15,6 +15,18 @@ export default function GuidedTemplatePage() {
   const [timeRemaining, setTimeRemaining] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
 
+  useEffect(() => {
+    const foundPrompt = mockPrompts.find(p => p.id === promptId)
+    setPrompt(foundPrompt || null)
+  }, [promptId])
+
+  useEffect(() => {
+    if (prompt?.template) {
+      const currentStep = prompt.template.steps[currentStepIndex]
+      setTimeRemaining(currentStep?.duration || 0)
+    }
+  }, [currentStepIndex, prompt])
+
   const handleStopRecording = useCallback(() => {
     setIsRecording(false)
     setIsPaused(false)
@@ -33,18 +45,6 @@ export default function GuidedTemplatePage() {
       setRecordedClips(prev => [...prev, newClip])
     }
   }, [prompt, currentStepIndex, timeRemaining])
-
-  useEffect(() => {
-    const foundPrompt = mockPrompts.find(p => p.id === promptId)
-    setPrompt(foundPrompt || null)
-  }, [promptId])
-
-  useEffect(() => {
-    if (prompt?.template) {
-      const currentStep = prompt.template.steps[currentStepIndex]
-      setTimeRemaining(currentStep?.duration || 0)
-    }
-  }, [currentStepIndex, prompt])
 
   useEffect(() => {
     let interval: NodeJS.Timeout
