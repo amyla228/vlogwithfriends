@@ -84,16 +84,20 @@ export default function GuidedTemplatePage() {
     if (stream && videoRef.current) {
       console.log('Configuring video element for step', currentStepIndex)
       
-      // Set up video element
+      // Set up video element - same as initial setup
       videoRef.current.srcObject = stream
       videoRef.current.muted = true
       videoRef.current.playsInline = true
       videoRef.current.autoplay = true
       
-      // Event handlers
+      // Event handlers - same as initial setup
       const handleLoadedMetadata = () => {
         console.log('Video metadata loaded for step', currentStepIndex)
         setIsCameraReady(true)
+        // Force play after metadata is loaded - same as initial setup
+        videoRef.current?.play().catch(error => {
+          console.error('Error playing video after metadata:', error)
+        })
       }
       
       const handleCanPlay = () => {
@@ -130,16 +134,19 @@ export default function GuidedTemplatePage() {
       videoRef.current.addEventListener('error', handleError)
       videoRef.current.addEventListener('loadeddata', handleLoadedData)
       
-      // Force play the video
+      // Force play the video - same as initial setup
       const playVideo = async () => {
         try {
           await videoRef.current!.play()
+          console.log('Video started playing for step', currentStepIndex)
         } catch (error) {
           console.error('Error playing video for step', currentStepIndex, ':', error)
         }
       }
       
+      // Try to play immediately and also after a short delay - same as initial setup
       playVideo()
+      setTimeout(playVideo, 200)
       
       // Cleanup function
       return () => {
@@ -151,35 +158,6 @@ export default function GuidedTemplatePage() {
           videoRef.current.removeEventListener('loadeddata', handleLoadedData)
         }
       }
-    }
-  }, [stream, currentStepIndex])
-
-  // Ensure video element is properly configured when it becomes available
-  useEffect(() => {
-    if (stream && videoRef.current) {
-      console.log('Video element available, configuring for step', currentStepIndex)
-      
-      // Ensure the video element has the correct properties
-      videoRef.current.srcObject = stream
-      videoRef.current.muted = true
-      videoRef.current.playsInline = true
-      videoRef.current.autoplay = true
-      
-      // Force play the video
-      const playVideo = async () => {
-        try {
-          if (videoRef.current && videoRef.current.paused) {
-            await videoRef.current.play()
-            console.log('Video started playing for step', currentStepIndex)
-          }
-        } catch (error) {
-          console.error('Error playing video for step', currentStepIndex, ':', error)
-        }
-      }
-      
-      // Try to play immediately and also after a short delay
-      playVideo()
-      setTimeout(playVideo, 100)
     }
   }, [stream, currentStepIndex])
 
