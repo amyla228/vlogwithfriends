@@ -78,9 +78,11 @@ export default function GuidedTemplatePage() {
     )
   }
 
-  const currentStep = prompt.template.steps[currentStepIndex]
-  const progress = ((currentStepIndex + 1) / prompt.template.steps.length) * 100
-  const isLastStep = currentStepIndex === prompt.template.steps.length - 1
+  // At this point, we know prompt and prompt.template are defined
+  const template = prompt.template!
+  const currentStep = template.steps[currentStepIndex]
+  const progress = ((currentStepIndex + 1) / template.steps.length) * 100
+  const isLastStep = currentStepIndex === template.steps.length - 1
 
   const handleStartRecording = () => {
     setIsRecording(true)
@@ -100,14 +102,14 @@ export default function GuidedTemplatePage() {
   }
 
   const handleNextStep = () => {
-    if (currentStepIndex < prompt.template.steps.length - 1) {
+    if (currentStepIndex < template.steps.length - 1) {
       setCurrentStepIndex(currentStepIndex + 1)
-      setTimeRemaining(prompt.template.steps[currentStepIndex + 1].duration)
+      setTimeRemaining(template.steps[currentStepIndex + 1].duration)
     }
   }
 
   const handleSkipStep = () => {
-    if (currentStepIndex < prompt.template.steps.length - 1) {
+    if (currentStepIndex < template.steps.length - 1) {
       setCurrentStepIndex(currentStepIndex + 1)
     }
   }
@@ -140,10 +142,10 @@ export default function GuidedTemplatePage() {
           </button>
           <div className="text-center">
             <h1 className="text-lg font-semibold text-gray-800">
-              {prompt.template.title}
+              {template.title}
             </h1>
             <p className="text-gray-600 text-sm">
-              Step {currentStepIndex + 1} of {prompt.template.steps.length}
+              Step {currentStepIndex + 1} of {template.steps.length}
             </p>
           </div>
           <div className="w-10" /> {/* Spacer */}
