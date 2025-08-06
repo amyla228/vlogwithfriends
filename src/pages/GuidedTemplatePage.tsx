@@ -36,7 +36,7 @@ export default function GuidedTemplatePage() {
     }
   }, [currentStepIndex, prompt])
 
-  // Initialize camera
+  // Initialize camera - only run once when component mounts
   useEffect(() => {
     const initCamera = async () => {
       try {
@@ -67,44 +67,6 @@ export default function GuidedTemplatePage() {
         console.log('Camera stream obtained:', mediaStream)
         setStream(mediaStream)
         
-        // Wait for video element to be available and configure it
-        const configureVideo = () => {
-          if (videoRef.current) {
-            console.log('Configuring video element...')
-            videoRef.current.srcObject = mediaStream
-            videoRef.current.onloadedmetadata = () => {
-              console.log('Video metadata loaded, dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight)
-              setIsCameraReady(true)
-              // Force play after metadata is loaded
-              videoRef.current?.play().catch(error => {
-                console.error('Error playing video after metadata:', error)
-              })
-            }
-            videoRef.current.onerror = (error) => {
-              console.error('Video error:', error)
-              setIsCameraReady(false)
-            }
-            videoRef.current.oncanplay = () => {
-              console.log('Video can play')
-              setIsCameraReady(true)
-            }
-            videoRef.current.onplay = () => {
-              console.log('Video started playing')
-              setIsCameraReady(true)
-            }
-            // Force play the video
-            videoRef.current.play().catch(error => {
-              console.error('Error playing video:', error)
-            })
-          } else {
-            console.error('Video ref not available')
-          }
-        }
-        
-        // Try to configure video immediately, then retry after a short delay
-        configureVideo()
-        setTimeout(configureVideo, 200)
-        
       } catch (error) {
         console.error('Error accessing camera:', error)
         setIsCameraReady(false)
@@ -113,72 +75,113 @@ export default function GuidedTemplatePage() {
 
     // Only initialize camera if we don't already have a stream
     if (!stream) {
-      // Small delay to ensure component is mounted
-      const timer = setTimeout(() => {
-        initCamera()
-      }, 100)
-
-      return () => {
-        clearTimeout(timer)
-      }
+      initCamera()
     }
-  }, [stream])
+  }, []) // Empty dependency array - only run once
 
-  // Configure video element when stream changes or component re-renders
+  // Configure video element whenever stream or step changes
   useEffect(() => {
     if (stream && videoRef.current) {
       console.log('Configuring video element for step', currentStepIndex)
+      
+      // Set up video element
       videoRef.current.srcObject = stream
-      videoRef.current.onloadedmetadata = () => {
-        console.log('Video metadata loaded, dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight)
+      videoRef.current.muted = true
+      videoRef.current.playsInline = true
+      videoRef.current.autoplay = true
+      
+      // Event handlers
+      const handleLoadedMetadata = () => {
+        console.log('Video metadata loaded for step', currentStepIndex)
         setIsCameraReady(true)
-        // Force play after metadata is loaded
-        videoRef.current?.play().catch(error => {
-          console.error('Error playing video after metadata:', error)
-        })
       }
-      videoRef.current.onerror = (error) => {
-        console.error('Video error:', error)
+      
+      const handleCanPlay = () => {
+        console.log('Video can play for step', currentStepIndex)
+        setIsCameraReady(true)
+      }
+      
+      const handlePlay = () => {
+        console.log('Video started playing for step', currentStepIndex)
+        setIsCameraReady(true)
+      }
+      
+      const handleError = (error: Event) => {
+        console.error('Video error for step', currentStepIndex, ':', error)
         setIsCameraReady(false)
       }
-      videoRef.current.oncanplay = () => {
-        console.log('Video can play')
+      
+      const handleLoadedData = () => {
+        console.log('Video loaded data for step', currentStepIndex)
         setIsCameraReady(true)
       }
-      videoRef.current.onplay = () => {
-        console.log('Video started playing')
-        setIsCameraReady(true)
-      }
-      videoRef.current.onloadeddata = () => {
-        console.log('Video loaded data')
-        setIsCameraReady(true)
-      }
-      videoRef.current.oncanplaythrough = () => {
-        console.log('Video can play through')
-        setIsCameraReady(true)
-      }
+      
+      // Remove existing event listeners
+      videoRef.current.removeEventListener('loadedmetadata', handleLoadedMetadata)
+      videoRef.current.removeEventListener('canplay', handleCanPlay)
+      videoRef.current.removeEventListener('play', handlePlay)
+      videoRef.current.removeEventListener('error', handleError)
+      videoRef.current.removeEventListener('loadeddata', handleLoadedData)
+      
+      // Add new event listeners
+      videoRef.current.addEventListener('loadedmetadata', handleLoadedMetadata)
+      videoRef.current.addEventListener('canplay', handleCanPlay)
+      videoRef.current.addEventListener('play', handlePlay)
+      videoRef.current.addEventListener('error', handleError)
+      videoRef.current.addEventListener('loadeddata', handleLoadedData)
+      
       // Force play the video
-      videoRef.current.play().catch(error => {
-        console.error('Error playing video:', error)
-      })
+      const playVideo = async () => {
+        try {
+          await videoRef.current!.play()
+        } catch (error) {
+          console.error('Error playing video for step', currentStepIndex, ':', error)
+        }
+      }
+      
+      playVideo()
+      
+      // Cleanup function
+      return () => {
+        if (videoRef.current) {
+          videoRef.current.removeEventListener('loadedmetadata', handleLoadedMetadata)
+          videoRef.current.removeEventListener('canplay', handleCanPlay)
+          videoRef.current.removeEventListener('play', handlePlay)
+          videoRef.current.removeEventListener('error', handleError)
+          videoRef.current.removeEventListener('loadeddata', handleLoadedData)
+        }
+      }
     }
-  }, [stream, currentStepIndex]) // Add currentStepIndex as dependency
+  }, [stream, currentStepIndex])
 
-  // Ensure video element is properly configured when step changes
+  // Ensure video element is properly configured when it becomes available
   useEffect(() => {
     if (stream && videoRef.current) {
-      console.log('Step changed to', currentStepIndex, ', reconfiguring video element')
-      // Small delay to ensure the video element is ready
-      setTimeout(() => {
-        if (videoRef.current && stream) {
-          videoRef.current.srcObject = stream
-          videoRef.current.play().catch(error => {
-            console.error('Error playing video after step change:', error)
-          })
+      console.log('Video element available, configuring for step', currentStepIndex)
+      
+      // Ensure the video element has the correct properties
+      videoRef.current.srcObject = stream
+      videoRef.current.muted = true
+      videoRef.current.playsInline = true
+      videoRef.current.autoplay = true
+      
+      // Force play the video
+      const playVideo = async () => {
+        try {
+          if (videoRef.current && videoRef.current.paused) {
+            await videoRef.current.play()
+            console.log('Video started playing for step', currentStepIndex)
+          }
+        } catch (error) {
+          console.error('Error playing video for step', currentStepIndex, ':', error)
         }
-      }, 100)
+      }
+      
+      // Try to play immediately and also after a short delay
+      playVideo()
+      setTimeout(playVideo, 100)
     }
-  }, [currentStepIndex, stream])
+  }, [stream, currentStepIndex])
 
   // Compile all clips into a single video
   const compileVideo = useCallback(async () => {
@@ -544,30 +547,6 @@ export default function GuidedTemplatePage() {
                     className="w-full h-full object-cover"
                     style={{ transform: 'scaleX(-1)' }} // Mirror the camera
                     key={`video-${currentStepIndex}`} // Add key to force re-render
-                    onLoadedMetadata={() => {
-                      console.log('Video loaded metadata for step', currentStepIndex)
-                      setIsCameraReady(true)
-                    }}
-                    onCanPlay={() => {
-                      console.log('Video can play for step', currentStepIndex)
-                      setIsCameraReady(true)
-                    }}
-                    onPlay={() => {
-                      console.log('Video started playing for step', currentStepIndex)
-                      setIsCameraReady(true)
-                    }}
-                    onError={(e) => {
-                      console.error('Video error for step', currentStepIndex, ':', e)
-                      setIsCameraReady(false)
-                    }}
-                    onLoadedData={() => {
-                      console.log('Video loaded data for step', currentStepIndex)
-                      setIsCameraReady(true)
-                    }}
-                    onCanPlayThrough={() => {
-                      console.log('Video can play through for step', currentStepIndex)
-                      setIsCameraReady(true)
-                    }}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
