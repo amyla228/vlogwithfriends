@@ -39,26 +39,45 @@ export default function GuidedTemplatePage() {
     const initCamera = async () => {
       try {
         console.log('Initializing camera...')
-        const mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { 
+        
+        // Check if getUserMedia is supported
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('getUserMedia not supported')
+        }
+        
+        // Mobile-optimized constraints
+        const constraints = {
+          video: {
             facingMode: 'user',
-            width: { ideal: 640 },
-            height: { ideal: 480 }
+            width: { ideal: 1280, min: 640 },
+            height: { ideal: 720, min: 480 },
+            aspectRatio: { ideal: 16/9 }
           },
-          audio: true
-        })
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        }
+        
+        console.log('Requesting camera with constraints:', constraints)
+        const mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
         console.log('Camera stream obtained:', mediaStream)
         setStream(mediaStream)
         
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream
           videoRef.current.onloadedmetadata = () => {
-            console.log('Video metadata loaded')
+            console.log('Video metadata loaded, dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight)
             setIsCameraReady(true)
           }
           videoRef.current.onerror = (error) => {
             console.error('Video error:', error)
             setIsCameraReady(false)
+          }
+          videoRef.current.oncanplay = () => {
+            console.log('Video can play')
+            setIsCameraReady(true)
           }
         }
       } catch (error) {
