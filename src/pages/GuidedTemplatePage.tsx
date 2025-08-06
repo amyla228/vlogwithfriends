@@ -21,7 +21,7 @@ export default function GuidedTemplatePage() {
   }, [promptId])
 
   useEffect(() => {
-    if (prompt?.template?.steps?.[currentStepIndex]) {
+    if (prompt?.template?.steps && prompt.template.steps[currentStepIndex]) {
       const currentStep = prompt.template.steps[currentStepIndex]
       setTimeRemaining(currentStep?.duration || 0)
     }
@@ -30,7 +30,7 @@ export default function GuidedTemplatePage() {
   const handleStopRecording = useCallback(() => {
     setIsRecording(false)
     setIsPaused(false)
-    if (prompt?.template?.steps?.[currentStepIndex]) {
+    if (prompt?.template?.steps && prompt.template.steps[currentStepIndex]) {
       const currentStep = prompt.template.steps[currentStepIndex]
       // Simulate recording a clip
       const newClip: VideoClip = {
