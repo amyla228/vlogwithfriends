@@ -71,6 +71,10 @@ export default function GuidedTemplatePage() {
           videoRef.current.onloadedmetadata = () => {
             console.log('Video metadata loaded, dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight)
             setIsCameraReady(true)
+            // Force play after metadata is loaded
+            videoRef.current?.play().catch(error => {
+              console.error('Error playing video after metadata:', error)
+            })
           }
           videoRef.current.onerror = (error) => {
             console.error('Video error:', error)
@@ -84,6 +88,10 @@ export default function GuidedTemplatePage() {
             console.log('Video started playing')
             setIsCameraReady(true)
           }
+          // Force play the video
+          videoRef.current.play().catch(error => {
+            console.error('Error playing video:', error)
+          })
         } else {
           console.error('Video ref not available')
         }
@@ -317,7 +325,9 @@ export default function GuidedTemplatePage() {
                     autoPlay
                     playsInline
                     muted
+                    controls={false}
                     className="w-full h-full object-cover"
+                    style={{ transform: 'scaleX(-1)' }} // Mirror the camera
                     onLoadedMetadata={() => {
                       console.log('Video loaded metadata')
                       setIsCameraReady(true)
