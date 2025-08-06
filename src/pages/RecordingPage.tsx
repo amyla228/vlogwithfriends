@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Camera, Play, Pause, RotateCcw, Save } from 'lucide-react'
+import { ArrowLeft, Camera, Play, Pause, RotateCcw, Save, CameraOff } from 'lucide-react'
 import { mockPrompts } from '../data/mockData'
 import { Prompt, VideoClip } from '../types'
 
@@ -14,11 +14,46 @@ export default function RecordingPage() {
   const [recordingTime, setRecordingTime] = useState(0)
   const [recordedClip, setRecordedClip] = useState<VideoClip | null>(null)
   const [caption, setCaption] = useState('')
+  const [stream, setStream] = useState<MediaStream | null>(null)
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null)
+  const [isCameraReady, setIsCameraReady] = useState(false)
+  
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
 
   useEffect(() => {
     const foundPrompt = mockPrompts.find(p => p.id === promptId)
     setPrompt(foundPrompt || null)
   }, [promptId])
+
+  // Initialize camera
+  useEffect(() => {
+    const initCamera = async () => {
+      try {
+        const mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user' },
+          audio: true
+        })
+        setStream(mediaStream)
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream
+          setIsCameraReady(true)
+        }
+      } catch (error) {
+        console.error('Error accessing camera:', error)
+        setIsCameraReady(false)
+      }
+    }
+
+    initCamera()
+
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop())
+      }
+    }
+  }, [])
 
   useEffect(() => {
     let interval: NodeJS.Timeout
@@ -46,28 +81,70 @@ export default function RecordingPage() {
     )
   }
 
-  const handleStartRecording = () => {
-    setIsRecording(true)
-    setIsPaused(false)
-    setRecordingTime(0)
+  const handleStartRecording = async () => {
+    if (!stream) return
+
+    try {
+      chunksRef.current = []
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'video/webm;codecs=vp9'
+      })
+      
+      mediaRecorderRef.current = mediaRecorder
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data)
+        }
+      }
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: 'video/webm' })
+        setRecordedBlob(blob)
+      }
+
+      mediaRecorder.start()
+      setIsRecording(true)
+      setIsPaused(false)
+      setRecordingTime(0)
+    } catch (error) {
+      console.error('Error starting recording:', error)
+      setIsRecording(true)
+      setIsPaused(false)
+      setRecordingTime(0)
+    }
   }
 
   const handleStopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop()
+    }
+    
     setIsRecording(false)
     setIsPaused(false)
-    // Simulate recording a clip
-    const newClip: VideoClip = {
-      id: `clip-${Date.now()}`,
-      promptId: prompt.id,
-      userId: 'current-user',
-      videoUrl: 'mock-video-url',
-      duration: recordingTime,
-      createdAt: new Date()
+    
+    if (recordedBlob) {
+      const videoUrl = URL.createObjectURL(recordedBlob)
+      const newClip: VideoClip = {
+        id: `clip-${Date.now()}`,
+        promptId: prompt.id,
+        userId: 'current-user',
+        videoUrl: videoUrl,
+        duration: recordingTime,
+        createdAt: new Date()
+      }
+      setRecordedClip(newClip)
     }
-    setRecordedClip(newClip)
   }
 
   const handlePauseRecording = () => {
+    if (mediaRecorderRef.current) {
+      if (isPaused) {
+        mediaRecorderRef.current.resume()
+      } else {
+        mediaRecorderRef.current.pause()
+      }
+    }
     setIsPaused(!isPaused)
   }
 
@@ -76,12 +153,12 @@ export default function RecordingPage() {
     setIsPaused(false)
     setRecordingTime(0)
     setRecordedClip(null)
+    setRecordedBlob(null)
     setCaption('')
   }
 
   const handleSave = () => {
     if (recordedClip) {
-      // Save the clip with caption
       const finalClip = {
         ...recordedClip,
         caption: caption.trim() || undefined
@@ -128,38 +205,47 @@ export default function RecordingPage() {
             animate={{ opacity: 1, y: 0 }}
             className="text-center"
           >
-            {/* Recording Area */}
+            {/* Camera Interface */}
             <div className="mb-8">
-              <div className="w-64 h-64 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center border-2 border-dashed border-gray-300">
-                <div className="text-center">
-                  <Camera className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-500">Tap to start recording</p>
-                </div>
+              <div className="relative w-80 h-80 mx-auto rounded-2xl overflow-hidden bg-black">
+                {isCameraReady ? (
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <div className="text-center text-white">
+                      <CameraOff className="w-12 h-12 mx-auto mb-2" />
+                      <p>Camera not available</p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Recording indicator */}
+                {isRecording && (
+                  <div className="absolute top-4 right-4 w-4 h-4 bg-red-500 rounded-full animate-pulse" />
+                )}
+                
+                {/* Timer overlay */}
+                {isRecording && (
+                  <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full">
+                    {formatTime(recordingTime)}
+                  </div>
+                )}
               </div>
             </div>
-
-            {/* Timer */}
-            {isRecording && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="mb-8"
-              >
-                <div className="text-4xl font-bold text-gray-800 mb-2">
-                  {formatTime(recordingTime)}
-                </div>
-                <div className="text-gray-500">
-                  {isPaused ? 'Paused' : 'Recording...'}
-                </div>
-              </motion.div>
-            )}
 
             {/* Recording Controls */}
             <div className="flex items-center justify-center space-x-4 mb-8">
               {!isRecording ? (
                 <button
                   onClick={handleStartRecording}
-                  className="w-16 h-16 rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 active:scale-95"
+                  disabled={!isCameraReady}
+                  className="w-16 h-16 rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Play className="w-8 h-8 text-white ml-1" />
                 </button>
@@ -203,14 +289,12 @@ export default function RecordingPage() {
           >
             {/* Preview */}
             <div className="mb-8">
-              <div className="w-64 h-64 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                <div className="text-center">
-                  <Play className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-500">Preview your recording</p>
-                  <p className="text-sm text-gray-400 mt-1">
-                    {formatTime(recordedClip.duration)}
-                  </p>
-                </div>
+              <div className="relative w-80 h-80 mx-auto rounded-2xl overflow-hidden bg-black">
+                <video
+                  src={recordedClip.videoUrl}
+                  controls
+                  className="w-full h-full object-cover"
+                />
               </div>
             </div>
 

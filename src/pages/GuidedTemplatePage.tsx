@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Play, Pause, RotateCcw, SkipForward, Check } from 'lucide-react'
+import { ArrowLeft, Play, Pause, RotateCcw, SkipForward, Check, Camera, CameraOff } from 'lucide-react'
 import { mockPrompts } from '../data/mockData'
 import { Prompt, VideoClip } from '../types'
 
@@ -14,6 +14,13 @@ export default function GuidedTemplatePage() {
   const [recordedClips, setRecordedClips] = useState<VideoClip[]>([])
   const [timeRemaining, setTimeRemaining] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
+  const [stream, setStream] = useState<MediaStream | null>(null)
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null)
+  const [isCameraReady, setIsCameraReady] = useState(false)
+  
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
 
   useEffect(() => {
     const foundPrompt = mockPrompts.find(p => p.id === promptId)
@@ -27,24 +34,105 @@ export default function GuidedTemplatePage() {
     }
   }, [currentStepIndex, prompt])
 
+  // Initialize camera
+  useEffect(() => {
+    const initCamera = async () => {
+      try {
+        const mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user' },
+          audio: true
+        })
+        setStream(mediaStream)
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream
+          setIsCameraReady(true)
+        }
+      } catch (error) {
+        console.error('Error accessing camera:', error)
+        // Fallback to mock recording
+        setIsCameraReady(false)
+      }
+    }
+
+    initCamera()
+
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop())
+      }
+    }
+  }, [])
+
+  const handleStartRecording = useCallback(async () => {
+    if (!stream) return
+
+    try {
+      chunksRef.current = []
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'video/webm;codecs=vp9'
+      })
+      
+      mediaRecorderRef.current = mediaRecorder
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data)
+        }
+      }
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: 'video/webm' })
+        setRecordedBlob(blob)
+      }
+
+      mediaRecorder.start()
+      setIsRecording(true)
+      setIsPaused(false)
+    } catch (error) {
+      console.error('Error starting recording:', error)
+      // Fallback to mock recording
+      setIsRecording(true)
+      setIsPaused(false)
+    }
+  }, [stream])
+
   const handleStopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop()
+    }
+    
     setIsRecording(false)
     setIsPaused(false)
-    if (prompt?.template?.steps && prompt.template.steps[currentStepIndex]) {
+    
+    if (recordedBlob && prompt?.template?.steps && prompt.template.steps[currentStepIndex]) {
       const currentStep = prompt.template.steps[currentStepIndex]
-      // Simulate recording a clip
+      // Create video URL from blob
+      const videoUrl = URL.createObjectURL(recordedBlob)
+      
       const newClip: VideoClip = {
         id: `clip-${Date.now()}`,
         stepId: currentStep.id,
         promptId: prompt.id,
         userId: 'current-user',
-        videoUrl: 'mock-video-url',
+        videoUrl: videoUrl,
         duration: currentStep.duration - timeRemaining,
         createdAt: new Date()
       }
       setRecordedClips(prev => [...prev, newClip])
+      setRecordedBlob(null)
     }
-  }, [prompt, currentStepIndex, timeRemaining])
+  }, [recordedBlob, prompt, currentStepIndex, timeRemaining, isRecording])
+
+  const handlePauseRecording = () => {
+    if (mediaRecorderRef.current) {
+      if (isPaused) {
+        mediaRecorderRef.current.resume()
+      } else {
+        mediaRecorderRef.current.pause()
+      }
+    }
+    setIsPaused(!isPaused)
+  }
 
   useEffect(() => {
     let interval: NodeJS.Timeout
@@ -84,19 +172,11 @@ export default function GuidedTemplatePage() {
   const progress = ((currentStepIndex + 1) / template.steps.length) * 100
   const isLastStep = currentStepIndex === template.steps.length - 1
 
-  const handleStartRecording = () => {
-    setIsRecording(true)
-    setIsPaused(false)
-  }
-
-  const handlePauseRecording = () => {
-    setIsPaused(!isPaused)
-  }
-
   const handleRerecord = () => {
     setTimeRemaining(currentStep.duration)
     setIsRecording(false)
     setIsPaused(false)
+    setRecordedBlob(null)
     // Remove the last recorded clip
     setRecordedClips(prev => prev.slice(0, -1))
   }
@@ -185,13 +265,37 @@ export default function GuidedTemplatePage() {
               </p>
             </div>
 
-            {/* Timer */}
+            {/* Camera Interface */}
             <div className="mb-8">
-              <div className="text-6xl font-bold text-gray-800 mb-2">
-                {formatTime(timeRemaining)}
-              </div>
-              <div className="text-gray-500">
-                {isRecording ? (isPaused ? 'Paused' : 'Recording...') : 'Ready to record'}
+              <div className="relative w-80 h-80 mx-auto rounded-2xl overflow-hidden bg-black">
+                {isCameraReady ? (
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <div className="text-center text-white">
+                      <CameraOff className="w-12 h-12 mx-auto mb-2" />
+                      <p>Camera not available</p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Recording indicator */}
+                {isRecording && (
+                  <div className="absolute top-4 right-4 w-4 h-4 bg-red-500 rounded-full animate-pulse" />
+                )}
+                
+                {/* Timer overlay */}
+                {isRecording && (
+                  <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full">
+                    {formatTime(timeRemaining)}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -200,7 +304,8 @@ export default function GuidedTemplatePage() {
               {!isRecording ? (
                 <button
                   onClick={handleStartRecording}
-                  className="w-16 h-16 rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 active:scale-95"
+                  disabled={!isCameraReady}
+                  className="w-16 h-16 rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Play className="w-8 h-8 text-white ml-1" />
                 </button>
