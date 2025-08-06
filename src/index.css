@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  
+  body {
+    @apply bg-gray-50 text-gray-900;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer components {
+  .mobile-container {
+    @apply max-w-md mx-auto min-h-screen bg-white;
+  }
+  
+  .gradient-bg {
+    @apply bg-gradient-to-br from-primary-400 to-secondary-500;
+  }
+  
+  .card {
+    @apply bg-white rounded-2xl shadow-lg border border-gray-100;
+  }
+  
+  .btn-primary {
+    @apply bg-primary-500 text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:bg-primary-600 active:scale-95 transition-all duration-200;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-100 text-gray-700 px-6 py-3 rounded-xl font-medium hover:bg-gray-200 active:scale-95 transition-all duration-200;
+  }
+}
