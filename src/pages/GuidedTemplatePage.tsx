@@ -38,18 +38,31 @@ export default function GuidedTemplatePage() {
   useEffect(() => {
     const initCamera = async () => {
       try {
+        console.log('Initializing camera...')
         const mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user' },
+          video: { 
+            facingMode: 'user',
+            width: { ideal: 640 },
+            height: { ideal: 480 }
+          },
           audio: true
         })
+        console.log('Camera stream obtained:', mediaStream)
         setStream(mediaStream)
+        
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream
-          setIsCameraReady(true)
+          videoRef.current.onloadedmetadata = () => {
+            console.log('Video metadata loaded')
+            setIsCameraReady(true)
+          }
+          videoRef.current.onerror = (error) => {
+            console.error('Video error:', error)
+            setIsCameraReady(false)
+          }
         }
       } catch (error) {
         console.error('Error accessing camera:', error)
-        // Fallback to mock recording
         setIsCameraReady(false)
       }
     }
@@ -275,12 +288,17 @@ export default function GuidedTemplatePage() {
                     playsInline
                     muted
                     className="w-full h-full object-cover"
+                    onLoadedMetadata={() => console.log('Video loaded')}
+                    onError={(e) => console.error('Video error:', e)}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <div className="text-center text-white">
                       <CameraOff className="w-12 h-12 mx-auto mb-2" />
                       <p>Camera not available</p>
+                      <p className="text-sm text-gray-400 mt-1">
+                        {stream ? 'Loading camera...' : 'Requesting camera access...'}
+                      </p>
                     </div>
                   </div>
                 )}
