@@ -124,10 +124,10 @@ export default function GuidedTemplatePage() {
     }
   }, [stream])
 
-  // Configure video element when stream changes
+  // Configure video element when stream changes or component re-renders
   useEffect(() => {
     if (stream && videoRef.current) {
-      console.log('Stream changed, configuring video element...')
+      console.log('Configuring video element for step', currentStepIndex)
       videoRef.current.srcObject = stream
       videoRef.current.onloadedmetadata = () => {
         console.log('Video metadata loaded, dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight)
@@ -149,12 +149,36 @@ export default function GuidedTemplatePage() {
         console.log('Video started playing')
         setIsCameraReady(true)
       }
+      videoRef.current.onloadeddata = () => {
+        console.log('Video loaded data')
+        setIsCameraReady(true)
+      }
+      videoRef.current.oncanplaythrough = () => {
+        console.log('Video can play through')
+        setIsCameraReady(true)
+      }
       // Force play the video
       videoRef.current.play().catch(error => {
         console.error('Error playing video:', error)
       })
     }
-  }, [stream])
+  }, [stream, currentStepIndex]) // Add currentStepIndex as dependency
+
+  // Ensure video element is properly configured when step changes
+  useEffect(() => {
+    if (stream && videoRef.current) {
+      console.log('Step changed to', currentStepIndex, ', reconfiguring video element')
+      // Small delay to ensure the video element is ready
+      setTimeout(() => {
+        if (videoRef.current && stream) {
+          videoRef.current.srcObject = stream
+          videoRef.current.play().catch(error => {
+            console.error('Error playing video after step change:', error)
+          })
+        }
+      }, 100)
+    }
+  }, [currentStepIndex, stream])
 
   // Compile all clips into a single video
   const compileVideo = useCallback(async () => {
@@ -417,6 +441,7 @@ export default function GuidedTemplatePage() {
       
       // Ensure camera is ready for the next step
       if (stream && videoRef.current) {
+        console.log('Reinitializing camera for next step')
         videoRef.current.srcObject = stream
         videoRef.current.play().catch(error => {
           console.error('Error playing video for next step:', error)
@@ -518,28 +543,29 @@ export default function GuidedTemplatePage() {
                     controls={false}
                     className="w-full h-full object-cover"
                     style={{ transform: 'scaleX(-1)' }} // Mirror the camera
+                    key={`video-${currentStepIndex}`} // Add key to force re-render
                     onLoadedMetadata={() => {
-                      console.log('Video loaded metadata')
+                      console.log('Video loaded metadata for step', currentStepIndex)
                       setIsCameraReady(true)
                     }}
                     onCanPlay={() => {
-                      console.log('Video can play')
+                      console.log('Video can play for step', currentStepIndex)
                       setIsCameraReady(true)
                     }}
                     onPlay={() => {
-                      console.log('Video started playing')
+                      console.log('Video started playing for step', currentStepIndex)
                       setIsCameraReady(true)
                     }}
                     onError={(e) => {
-                      console.error('Video error:', e)
+                      console.error('Video error for step', currentStepIndex, ':', e)
                       setIsCameraReady(false)
                     }}
                     onLoadedData={() => {
-                      console.log('Video loaded data')
+                      console.log('Video loaded data for step', currentStepIndex)
                       setIsCameraReady(true)
                     }}
                     onCanPlayThrough={() => {
-                      console.log('Video can play through')
+                      console.log('Video can play through for step', currentStepIndex)
                       setIsCameraReady(true)
                     }}
                   />
