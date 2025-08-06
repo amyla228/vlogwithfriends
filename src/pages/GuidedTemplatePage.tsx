@@ -65,6 +65,7 @@ export default function GuidedTemplatePage() {
         console.log('Camera stream obtained:', mediaStream)
         setStream(mediaStream)
         
+        // Wait for video element to be available
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream
           videoRef.current.onloadedmetadata = () => {
@@ -79,6 +80,12 @@ export default function GuidedTemplatePage() {
             console.log('Video can play')
             setIsCameraReady(true)
           }
+          videoRef.current.onplay = () => {
+            console.log('Video started playing')
+            setIsCameraReady(true)
+          }
+        } else {
+          console.error('Video ref not available')
         }
       } catch (error) {
         console.error('Error accessing camera:', error)
@@ -86,9 +93,13 @@ export default function GuidedTemplatePage() {
       }
     }
 
-    initCamera()
+    // Small delay to ensure component is mounted
+    const timer = setTimeout(() => {
+      initCamera()
+    }, 100)
 
     return () => {
+      clearTimeout(timer)
       if (stream) {
         stream.getTracks().forEach(track => track.stop())
       }
@@ -300,15 +311,29 @@ export default function GuidedTemplatePage() {
             {/* Camera Interface */}
             <div className="mb-8">
               <div className="relative w-80 h-80 mx-auto rounded-2xl overflow-hidden bg-black">
-                {isCameraReady ? (
+                {stream ? (
                   <video
                     ref={videoRef}
                     autoPlay
                     playsInline
                     muted
                     className="w-full h-full object-cover"
-                    onLoadedMetadata={() => console.log('Video loaded')}
-                    onError={(e) => console.error('Video error:', e)}
+                    onLoadedMetadata={() => {
+                      console.log('Video loaded metadata')
+                      setIsCameraReady(true)
+                    }}
+                    onCanPlay={() => {
+                      console.log('Video can play')
+                      setIsCameraReady(true)
+                    }}
+                    onPlay={() => {
+                      console.log('Video started playing')
+                      setIsCameraReady(true)
+                    }}
+                    onError={(e) => {
+                      console.error('Video error:', e)
+                      setIsCameraReady(false)
+                    }}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
@@ -316,7 +341,7 @@ export default function GuidedTemplatePage() {
                       <CameraOff className="w-12 h-12 mx-auto mb-2" />
                       <p>Camera not available</p>
                       <p className="text-sm text-gray-400 mt-1">
-                        {stream ? 'Loading camera...' : 'Requesting camera access...'}
+                        Requesting camera access...
                       </p>
                     </div>
                   </div>
