@@ -1,4 +1,4 @@
-import { User, Prompt, GuidedTemplate, TemplateStep } from '../types'
+import { User, Prompt, GuidedTemplate } from '../types'
 
 export const mockUsers: User[] = [
   {

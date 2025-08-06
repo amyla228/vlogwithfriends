@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Camera, Play, Pause, RotateCcw, SkipForward, Check } from 'lucide-react'
-import { mockPrompts, mockTemplates } from '../data/mockData'
-import { Prompt, TemplateStep, VideoClip } from '../types'
+import { ArrowLeft, Play, Pause, RotateCcw, SkipForward, Check } from 'lucide-react'
+import { mockPrompts } from '../data/mockData'
+import { Prompt, VideoClip } from '../types'
 
 export default function GuidedTemplatePage() {
   const { promptId } = useParams<{ promptId: string }>()

@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, User, Settings, Bell, Heart, Camera, Share2 } from 'lucide-react'
+import { ArrowLeft, Settings, Bell, Heart, Camera, Share2 } from 'lucide-react'
 import { mockUsers } from '../data/mockData'
 
 export default function ProfilePage() {

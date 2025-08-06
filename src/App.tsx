@@ -1,5 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence } from 'framer-motion'
 import HomePage from './pages/HomePage'
 import PromptPage from './pages/PromptPage'
 import RecordingPage from './pages/RecordingPage'

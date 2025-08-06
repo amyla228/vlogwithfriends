@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Camera, Play, Pause, RotateCcw, Save, Mic, Type } from 'lucide-react'
+import { ArrowLeft, Camera, Play, Pause, RotateCcw, Save } from 'lucide-react'
 import { mockPrompts } from '../data/mockData'
 import { Prompt, VideoClip } from '../types'
 
@@ -13,7 +13,6 @@ export default function RecordingPage() {
   const [isPaused, setIsPaused] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
   const [recordedClip, setRecordedClip] = useState<VideoClip | null>(null)
-  const [showCaptionModal, setShowCaptionModal] = useState(false)
   const [caption, setCaption] = useState('')
 
   useEffect(() => {
