@@ -18,6 +18,12 @@ export const mockUsers: User[] = [
     name: 'Maya Patel',
     username: 'maya',
     avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face'
+  },
+  {
+    id: '4',
+    name: 'Piper Thompson',
+    username: 'piper',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop&crop=face&auto=format&q=80'
   }
 ]
 
@@ -141,6 +147,58 @@ export const mockTemplates: GuidedTemplate[] = [
       }
     ],
     estimatedDuration: 45
+  },
+  {
+    id: 'night-routine',
+    title: 'Night Routine',
+    steps: [
+      {
+        id: 'step1',
+        order: 1,
+        title: 'Evening Wind Down',
+        description: 'Show us how you start winding down for the night',
+        emoji: '🌙',
+        duration: 12,
+        isOptional: false
+      },
+      {
+        id: 'step2',
+        order: 2,
+        title: 'Skincare Routine',
+        description: 'What\'s your evening skincare routine?',
+        emoji: '🧴',
+        duration: 15,
+        isOptional: true
+      },
+      {
+        id: 'step3',
+        order: 3,
+        title: 'Pajamas',
+        description: 'Show us your cozy pajamas!',
+        emoji: '🛏️',
+        duration: 8,
+        isOptional: false
+      },
+      {
+        id: 'step4',
+        order: 4,
+        title: 'Bedtime Story',
+        description: 'What are you reading or watching before bed?',
+        emoji: '📚',
+        duration: 10,
+        isOptional: true
+      },
+      {
+        id: 'step5',
+        order: 5,
+        title: 'Goodnight',
+        description: 'Say goodnight and share one thing you\'re grateful for today',
+        emoji: '😴',
+        duration: 8,
+        isOptional: false
+      }
+    ],
+    estimatedDuration: 53
   }
 ]
 
@@ -177,5 +235,16 @@ export const mockPrompts: Prompt[] = [
     expiresAt: new Date('2024-01-16T10:15:00Z'),
     isCompleted: false,
     template: mockTemplates[2]
+  },
+  {
+    id: '4',
+    title: 'Piper wants to see your night routine',
+    description: 'Piper wants to know how you wind down for the night!',
+    fromUser: mockUsers[3],
+    toUser: mockUsers[0],
+    createdAt: new Date('2024-01-15T11:00:00Z'),
+    expiresAt: new Date('2024-01-16T11:00:00Z'),
+    isCompleted: false,
+    template: mockTemplates[3]
   }
 ]
