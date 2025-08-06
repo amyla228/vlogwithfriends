@@ -84,7 +84,7 @@ export default function GuidedTemplatePage() {
     if (stream && videoRef.current) {
       console.log('Configuring video element for step', currentStepIndex)
       
-      // Set up video element - same as initial setup
+      // Set up video element - same as initial setup (ensures camera works on all steps)
       videoRef.current.srcObject = stream
       videoRef.current.muted = true
       videoRef.current.playsInline = true
