@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Play, Pause, RotateCcw, SkipForward, Check, CameraOff } from 'lucide-react'
+import { ArrowLeft, Play, Pause, RotateCcw, SkipForward, Check, CameraOff, Download } from 'lucide-react'
 import { mockPrompts } from '../data/mockData'
 import { Prompt, VideoClip } from '../types'
 
@@ -17,6 +17,8 @@ export default function GuidedTemplatePage() {
   const [stream, setStream] = useState<MediaStream | null>(null)
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null)
   const [isCameraReady, setIsCameraReady] = useState(false)
+  const [isCompiling, setIsCompiling] = useState(false)
+  const [compiledVideoUrl, setCompiledVideoUrl] = useState<string | null>(null)
   
   const videoRef = useRef<HTMLVideoElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -109,18 +111,18 @@ export default function GuidedTemplatePage() {
       }
     }
 
-    // Small delay to ensure component is mounted
-    const timer = setTimeout(() => {
-      initCamera()
-    }, 100)
+    // Only initialize camera if we don't already have a stream
+    if (!stream) {
+      // Small delay to ensure component is mounted
+      const timer = setTimeout(() => {
+        initCamera()
+      }, 100)
 
-    return () => {
-      clearTimeout(timer)
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop())
+      return () => {
+        clearTimeout(timer)
       }
     }
-  }, [])
+  }, [stream])
 
   // Configure video element when stream changes
   useEffect(() => {
@@ -153,6 +155,116 @@ export default function GuidedTemplatePage() {
       })
     }
   }, [stream])
+
+  // Compile all clips into a single video
+  const compileVideo = useCallback(async () => {
+    if (recordedClips.length === 0) return
+
+    setIsCompiling(true)
+    try {
+      console.log('Compiling video from', recordedClips.length, 'clips')
+      
+      // Create a canvas to combine videos
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Canvas context not available')
+
+      // Set canvas size (use the first clip's dimensions as reference)
+      canvas.width = 1280
+      canvas.height = 720
+
+      // Create a video element for each clip
+      const videoElements: HTMLVideoElement[] = []
+      const loadPromises: Promise<void>[] = []
+
+      for (const clip of recordedClips) {
+        const video = document.createElement('video')
+        video.src = clip.videoUrl
+        video.muted = true
+        video.playsInline = true
+        
+        const loadPromise = new Promise<void>((resolve) => {
+          video.onloadedmetadata = () => resolve()
+        })
+        
+        loadPromises.push(loadPromise)
+        videoElements.push(video)
+      }
+
+      // Wait for all videos to load
+      await Promise.all(loadPromises)
+
+      // Create MediaRecorder to record the canvas
+      const canvasStream = canvas.captureStream(30) // 30 FPS
+      const mediaRecorder = new MediaRecorder(canvasStream, {
+        mimeType: 'video/webm;codecs=vp9'
+      })
+
+      const chunks: Blob[] = []
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data)
+        }
+      }
+
+      mediaRecorder.onstop = () => {
+        const compiledBlob = new Blob(chunks, { type: 'video/webm' })
+        const compiledUrl = URL.createObjectURL(compiledBlob)
+        setCompiledVideoUrl(compiledUrl)
+        setIsCompiling(false)
+        console.log('Video compilation complete')
+      }
+
+      // Start recording
+      mediaRecorder.start()
+
+      // Play each clip sequentially
+      let currentTime = 0
+      for (let i = 0; i < videoElements.length; i++) {
+        const video = videoElements[i]
+        const clip = recordedClips[i]
+        
+        // Set video dimensions to fit canvas
+        const aspectRatio = video.videoWidth / video.videoHeight
+        const canvasAspectRatio = canvas.width / canvas.height
+        
+        let drawWidth = canvas.width
+        let drawHeight = canvas.height
+        let drawX = 0
+        let drawY = 0
+
+        if (aspectRatio > canvasAspectRatio) {
+          // Video is wider than canvas
+          drawHeight = canvas.width / aspectRatio
+          drawY = (canvas.height - drawHeight) / 2
+        } else {
+          // Video is taller than canvas
+          drawWidth = canvas.height * aspectRatio
+          drawX = (canvas.width - drawWidth) / 2
+        }
+
+        // Play the video
+        video.currentTime = 0
+        await video.play()
+
+        // Draw frames for the duration of the clip
+        const startTime = Date.now()
+        const clipDuration = clip.duration * 1000 // Convert to milliseconds
+
+        while (Date.now() - startTime < clipDuration) {
+          ctx.drawImage(video, drawX, drawY, drawWidth, drawHeight)
+          await new Promise(resolve => setTimeout(resolve, 33)) // ~30 FPS
+        }
+
+        video.pause()
+      }
+
+      mediaRecorder.stop()
+    } catch (error) {
+      console.error('Error compiling video:', error)
+      setIsCompiling(false)
+    }
+  }, [recordedClips])
 
   const handleStartRecording = useCallback(async () => {
     if (!stream) return
@@ -201,7 +313,7 @@ export default function GuidedTemplatePage() {
       const videoUrl = URL.createObjectURL(recordedBlob)
       
       const newClip: VideoClip = {
-        id: `clip-${Date.now()}`,
+        id: `clip-${Date.now()}-${currentStepIndex}`,
         stepId: currentStep.id,
         promptId: prompt.id,
         userId: 'current-user',
@@ -209,7 +321,21 @@ export default function GuidedTemplatePage() {
         duration: currentStep.duration - timeRemaining,
         createdAt: new Date()
       }
-      setRecordedClips(prev => [...prev, newClip])
+      
+      // Check if we already have a clip for this step and replace it
+      setRecordedClips(prev => {
+        const existingClipIndex = prev.findIndex(clip => clip.stepId === currentStep.id)
+        if (existingClipIndex >= 0) {
+          // Replace existing clip
+          const updatedClips = [...prev]
+          updatedClips[existingClipIndex] = newClip
+          return updatedClips
+        } else {
+          // Add new clip
+          return [...prev, newClip]
+        }
+      })
+      
       setRecordedBlob(null)
     }
   }, [recordedBlob, prompt, currentStepIndex, timeRemaining, isRecording])
@@ -240,6 +366,15 @@ export default function GuidedTemplatePage() {
     }
     return () => clearInterval(interval)
   }, [isRecording, isPaused, timeRemaining, handleStopRecording])
+
+  // Cleanup stream on unmount
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop())
+      }
+    }
+  }, [stream])
 
   if (!prompt || !prompt.template) {
     return (
@@ -274,8 +409,20 @@ export default function GuidedTemplatePage() {
 
   const handleNextStep = () => {
     if (currentStepIndex < template.steps.length - 1) {
-      setCurrentStepIndex(currentStepIndex + 1)
-      setTimeRemaining(template.steps[currentStepIndex + 1].duration)
+      const nextStepIndex = currentStepIndex + 1
+      setCurrentStepIndex(nextStepIndex)
+      setTimeRemaining(template.steps[nextStepIndex].duration)
+      setIsRecording(false)
+      setIsPaused(false)
+      setRecordedBlob(null)
+      
+      // Ensure camera is ready for the next step
+      if (stream && videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.play().catch(error => {
+          console.error('Error playing video for next step:', error)
+        })
+      }
     }
   }
 
@@ -285,9 +432,13 @@ export default function GuidedTemplatePage() {
     }
   }
 
-  const handleFinish = () => {
-    // Navigate to completion page or save
-    navigate('/')
+  const handleFinish = async () => {
+    if (recordedClips.length > 0) {
+      await compileVideo()
+    } else {
+      // Navigate to completion page or save
+      navigate('/')
+    }
   }
 
   const formatTime = (seconds: number) => {
@@ -506,6 +657,84 @@ export default function GuidedTemplatePage() {
           )}
         </div>
       </div>
+
+      {/* Compiled Video Display */}
+      {compiledVideoUrl && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6"
+        >
+          <div className="bg-white rounded-2xl p-6 max-w-2xl w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-gray-800">
+                Your Compiled Video
+              </h3>
+              <button
+                onClick={() => setCompiledVideoUrl(null)}
+                className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <video
+                src={compiledVideoUrl}
+                controls
+                className="w-full rounded-lg"
+                autoPlay
+              />
+            </div>
+            
+            <div className="flex items-center justify-center space-x-4">
+              <button
+                onClick={() => {
+                  const link = document.createElement('a')
+                  link.href = compiledVideoUrl
+                  link.download = `vlog-${prompt?.title || 'video'}.webm`
+                  link.click()
+                }}
+                className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-lg hover:shadow-lg transition-all duration-200"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download Video</span>
+              </button>
+              
+              <button
+                onClick={() => {
+                  setCompiledVideoUrl(null)
+                  navigate('/')
+                }}
+                className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Compiling Overlay */}
+      {isCompiling && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
+        >
+          <div className="bg-white rounded-2xl p-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-primary-100 to-secondary-100 flex items-center justify-center">
+              <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-800 mb-2">
+              Compiling Your Video
+            </h3>
+            <p className="text-gray-600">
+              Combining {recordedClips.length} clips into one video...
+            </p>
+          </div>
+        </motion.div>
+      )}
     </div>
   )
 }
