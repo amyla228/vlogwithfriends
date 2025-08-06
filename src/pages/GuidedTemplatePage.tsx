@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Play, Pause, RotateCcw, SkipForward, Check } from 'lucide-react'
@@ -14,6 +14,25 @@ export default function GuidedTemplatePage() {
   const [recordedClips, setRecordedClips] = useState<VideoClip[]>([])
   const [timeRemaining, setTimeRemaining] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
+
+  const handleStopRecording = useCallback(() => {
+    setIsRecording(false)
+    setIsPaused(false)
+    if (prompt?.template) {
+      const currentStep = prompt.template.steps[currentStepIndex]
+      // Simulate recording a clip
+      const newClip: VideoClip = {
+        id: `clip-${Date.now()}`,
+        stepId: currentStep.id,
+        promptId: prompt.id,
+        userId: 'current-user',
+        videoUrl: 'mock-video-url',
+        duration: currentStep.duration - timeRemaining,
+        createdAt: new Date()
+      }
+      setRecordedClips(prev => [...prev, newClip])
+    }
+  }, [prompt, currentStepIndex, timeRemaining])
 
   useEffect(() => {
     const foundPrompt = mockPrompts.find(p => p.id === promptId)
@@ -41,7 +60,7 @@ export default function GuidedTemplatePage() {
       }, 1000)
     }
     return () => clearInterval(interval)
-  }, [isRecording, isPaused, timeRemaining])
+  }, [isRecording, isPaused, timeRemaining, handleStopRecording])
 
   if (!prompt || !prompt.template) {
     return (
@@ -68,22 +87,6 @@ export default function GuidedTemplatePage() {
     setIsPaused(false)
   }
 
-  const handleStopRecording = () => {
-    setIsRecording(false)
-    setIsPaused(false)
-    // Simulate recording a clip
-    const newClip: VideoClip = {
-      id: `clip-${Date.now()}`,
-      stepId: currentStep.id,
-      promptId: prompt.id,
-      userId: 'current-user',
-      videoUrl: 'mock-video-url',
-      duration: currentStep.duration - timeRemaining,
-      createdAt: new Date()
-    }
-    setRecordedClips([...recordedClips, newClip])
-  }
-
   const handlePauseRecording = () => {
     setIsPaused(!isPaused)
   }
@@ -93,7 +96,7 @@ export default function GuidedTemplatePage() {
     setIsRecording(false)
     setIsPaused(false)
     // Remove the last recorded clip
-    setRecordedClips(recordedClips.slice(0, -1))
+    setRecordedClips(prev => prev.slice(0, -1))
   }
 
   const handleNextStep = () => {
