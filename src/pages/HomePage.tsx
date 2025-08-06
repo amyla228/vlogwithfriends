@@ -71,11 +71,26 @@ export default function HomePage() {
                 className="card p-6 cursor-pointer hover:shadow-xl transition-all duration-300 active:scale-98"
               >
                 <div className="flex items-start space-x-4">
-                  <img 
-                    src={prompt.fromUser.avatar} 
-                    alt={prompt.fromUser.name}
-                    className="w-12 h-12 rounded-full object-cover"
-                  />
+                  <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-primary-100 to-secondary-100 flex items-center justify-center relative">
+                    {prompt.fromUser.avatar ? (
+                      <img 
+                        src={prompt.fromUser.avatar} 
+                        alt={prompt.fromUser.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          // Hide the image and show fallback
+                          e.currentTarget.style.display = 'none'
+                          const fallback = e.currentTarget.parentElement?.querySelector('.avatar-fallback')
+                          if (fallback) {
+                            fallback.classList.remove('hidden')
+                          }
+                        }}
+                      />
+                    ) : null}
+                    <div className={`w-full h-full flex items-center justify-center text-lg font-semibold text-primary-600 avatar-fallback ${prompt.fromUser.avatar ? 'hidden' : ''}`}>
+                      {prompt.fromUser.name.charAt(0).toUpperCase()}
+                    </div>
+                  </div>
                   <div className="flex-1">
                     <h3 className="font-semibold text-gray-800 mb-1">
                       {prompt.title}

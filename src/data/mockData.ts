@@ -11,7 +11,7 @@ export const mockUsers: User[] = [
     id: '2',
     name: 'Amy Rodriguez',
     username: 'amy',
-    avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face'
+    avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face&auto=format&q=80'
   },
   {
     id: '3',
