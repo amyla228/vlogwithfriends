@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Camera, Play, Pause, RotateCcw, Save, CameraOff } from 'lucide-react'
+import { ArrowLeft, Play, Pause, RotateCcw, Save, CameraOff } from 'lucide-react'
 import { mockPrompts } from '../data/mockData'
 import { Prompt, VideoClip } from '../types'
 
