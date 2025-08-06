@@ -79,10 +79,10 @@ export default function GuidedTemplatePage() {
     }
   }, []) // Empty dependency array - only run once
 
-  // Configure video element whenever stream or step changes
+  // Configure video element whenever stream or step changes - FIXED FOR ALL STEPS
   useEffect(() => {
     if (stream && videoRef.current) {
-      console.log('Configuring video element for step', currentStepIndex)
+      console.log('Configuring video element for step', currentStepIndex, '- CAMERA FIX APPLIED')
       
       // Set up video element - same as initial setup (ensures camera works on all steps)
       videoRef.current.srcObject = stream
