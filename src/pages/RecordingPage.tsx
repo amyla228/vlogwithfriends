@@ -107,6 +107,38 @@ export default function RecordingPage() {
     }
   }, [])
 
+  // Configure video element when stream changes
+  useEffect(() => {
+    if (stream && videoRef.current) {
+      console.log('Stream changed, configuring video element...')
+      videoRef.current.srcObject = stream
+      videoRef.current.onloadedmetadata = () => {
+        console.log('Video metadata loaded, dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight)
+        setIsCameraReady(true)
+        // Force play after metadata is loaded
+        videoRef.current?.play().catch(error => {
+          console.error('Error playing video after metadata:', error)
+        })
+      }
+      videoRef.current.onerror = (error) => {
+        console.error('Video error:', error)
+        setIsCameraReady(false)
+      }
+      videoRef.current.oncanplay = () => {
+        console.log('Video can play')
+        setIsCameraReady(true)
+      }
+      videoRef.current.onplay = () => {
+        console.log('Video started playing')
+        setIsCameraReady(true)
+      }
+      // Force play the video
+      videoRef.current.play().catch(error => {
+        console.error('Error playing video:', error)
+      })
+    }
+  }, [stream])
+
   useEffect(() => {
     let interval: NodeJS.Timeout
     if (isRecording && !isPaused) {
@@ -284,6 +316,14 @@ export default function RecordingPage() {
                     onError={(e) => {
                       console.error('Video error:', e)
                       setIsCameraReady(false)
+                    }}
+                    onLoadedData={() => {
+                      console.log('Video loaded data')
+                      setIsCameraReady(true)
+                    }}
+                    onCanPlayThrough={() => {
+                      console.log('Video can play through')
+                      setIsCameraReady(true)
                     }}
                   />
                 ) : (

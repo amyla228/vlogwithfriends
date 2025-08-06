@@ -65,36 +65,44 @@ export default function GuidedTemplatePage() {
         console.log('Camera stream obtained:', mediaStream)
         setStream(mediaStream)
         
-        // Wait for video element to be available
-        if (videoRef.current) {
-          videoRef.current.srcObject = mediaStream
-          videoRef.current.onloadedmetadata = () => {
-            console.log('Video metadata loaded, dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight)
-            setIsCameraReady(true)
-            // Force play after metadata is loaded
-            videoRef.current?.play().catch(error => {
-              console.error('Error playing video after metadata:', error)
+        // Wait for video element to be available and configure it
+        const configureVideo = () => {
+          if (videoRef.current) {
+            console.log('Configuring video element...')
+            videoRef.current.srcObject = mediaStream
+            videoRef.current.onloadedmetadata = () => {
+              console.log('Video metadata loaded, dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight)
+              setIsCameraReady(true)
+              // Force play after metadata is loaded
+              videoRef.current?.play().catch(error => {
+                console.error('Error playing video after metadata:', error)
+              })
+            }
+            videoRef.current.onerror = (error) => {
+              console.error('Video error:', error)
+              setIsCameraReady(false)
+            }
+            videoRef.current.oncanplay = () => {
+              console.log('Video can play')
+              setIsCameraReady(true)
+            }
+            videoRef.current.onplay = () => {
+              console.log('Video started playing')
+              setIsCameraReady(true)
+            }
+            // Force play the video
+            videoRef.current.play().catch(error => {
+              console.error('Error playing video:', error)
             })
+          } else {
+            console.error('Video ref not available')
           }
-          videoRef.current.onerror = (error) => {
-            console.error('Video error:', error)
-            setIsCameraReady(false)
-          }
-          videoRef.current.oncanplay = () => {
-            console.log('Video can play')
-            setIsCameraReady(true)
-          }
-          videoRef.current.onplay = () => {
-            console.log('Video started playing')
-            setIsCameraReady(true)
-          }
-          // Force play the video
-          videoRef.current.play().catch(error => {
-            console.error('Error playing video:', error)
-          })
-        } else {
-          console.error('Video ref not available')
         }
+        
+        // Try to configure video immediately, then retry after a short delay
+        configureVideo()
+        setTimeout(configureVideo, 200)
+        
       } catch (error) {
         console.error('Error accessing camera:', error)
         setIsCameraReady(false)
@@ -113,6 +121,38 @@ export default function GuidedTemplatePage() {
       }
     }
   }, [])
+
+  // Configure video element when stream changes
+  useEffect(() => {
+    if (stream && videoRef.current) {
+      console.log('Stream changed, configuring video element...')
+      videoRef.current.srcObject = stream
+      videoRef.current.onloadedmetadata = () => {
+        console.log('Video metadata loaded, dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight)
+        setIsCameraReady(true)
+        // Force play after metadata is loaded
+        videoRef.current?.play().catch(error => {
+          console.error('Error playing video after metadata:', error)
+        })
+      }
+      videoRef.current.onerror = (error) => {
+        console.error('Video error:', error)
+        setIsCameraReady(false)
+      }
+      videoRef.current.oncanplay = () => {
+        console.log('Video can play')
+        setIsCameraReady(true)
+      }
+      videoRef.current.onplay = () => {
+        console.log('Video started playing')
+        setIsCameraReady(true)
+      }
+      // Force play the video
+      videoRef.current.play().catch(error => {
+        console.error('Error playing video:', error)
+      })
+    }
+  }, [stream])
 
   const handleStartRecording = useCallback(async () => {
     if (!stream) return
@@ -343,6 +383,14 @@ export default function GuidedTemplatePage() {
                     onError={(e) => {
                       console.error('Video error:', e)
                       setIsCameraReady(false)
+                    }}
+                    onLoadedData={() => {
+                      console.log('Video loaded data')
+                      setIsCameraReady(true)
+                    }}
+                    onCanPlayThrough={() => {
+                      console.log('Video can play through')
+                      setIsCameraReady(true)
                     }}
                   />
                 ) : (
